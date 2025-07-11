@@ -9,19 +9,17 @@ import TokenForm from './components/TokenForm';
 import CodeBlock from './components/CodeBlock';
 import Footer from './components/Footer';
 
-// Fitochain network details
+// Correct Fitochain network details as per user specification
 const FITOCHAIN_MAINNET = {
-  chainId: '0x3F8F2', // 260322 in hex
-  chainName: 'Fitochain Mainnet',
+  chainId: '0x4D1', // 1233 in hex
+  chainName: 'Fitochain',
   nativeCurrency: {
     name: 'FITO',
     symbol: 'FITO',
     decimals: 18,
   },
-  rpcUrls: ['https://rpc.fito.services/'],
-  // blockExplorerUrls is optional and has been removed. The previous URL
-  // (https://explorer.fitochain.com) was offline, causing MetaMask to
-  // throw an error when attempting to add the network.
+  rpcUrls: ['https://rpc.fitochain.com'],
+  blockExplorerUrls: ['https://explorer.fitochain.com/'],
 };
 
 function App(): React.ReactNode {
