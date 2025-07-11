@@ -19,8 +19,17 @@ export interface LiquidityTokenForm extends StandardTokenForm {
   marketingFee: string;
 }
 
+/**
+ * Ethers' Eip1193Provider is minimal. This type extends it with event listener
+ * methods that are commonly available on wallet providers like MetaMask.
+ */
+interface Eip1193ProviderWithEvents extends ethers.Eip1193Provider {
+  on: (eventName: string | symbol, listener: (...args: any[]) => void) => this;
+  removeListener: (eventName: string | symbol, listener: (...args: any[]) => void) => this;
+}
+
 declare global {
   interface Window {
-    ethereum?: ethers.Eip1193Provider;
+    ethereum?: Eip1193ProviderWithEvents;
   }
 }

@@ -19,7 +19,9 @@ const FITOCHAIN_MAINNET = {
     decimals: 18,
   },
   rpcUrls: ['https://rpc.fito.services/'],
-  blockExplorerUrls: ['https://explorer.fitochain.com'],
+  // blockExplorerUrls is optional and has been removed. The previous URL
+  // (https://explorer.fitochain.com) was offline, causing MetaMask to
+  // throw an error when attempting to add the network.
 };
 
 function App(): React.ReactNode {
