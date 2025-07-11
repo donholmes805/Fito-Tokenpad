@@ -1,0 +1,6 @@
+{
+  "name": "Fito Tokenpad",
+  "description": "An AI-powered token creator for the Fitochain blockchain. Generate Standard or Liquidity Generator token contracts with ease using Gemini.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
