@@ -1,0 +1,6 @@
+{
+  "name": "Fito Tokenpad",
+  "description": "An AI-powered token creator for multiple EVM blockchains. Pay with SOL on Solana and generate Standard or Liquidity Generator token contracts with ease using Gemini.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
