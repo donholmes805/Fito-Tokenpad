@@ -28,11 +28,28 @@ function App(): React.ReactNode {
   const [walletError, setWalletError] = useState<string | null>(null);
   const [prices, setPrices] = useState<Prices | null>(null);
   const [pricesError, setPricesError] = useState<string>('');
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
   
   const { connection } = useConnection();
   const { publicKey, sendTransaction, connected } = useWallet();
 
   useEffect(() => {
+    if (connected && publicKey) {
+      const adminCheck = publicKey.toBase58() === TREASURY_WALLET_ADDRESS;
+      setIsAdmin(adminCheck);
+      if (adminCheck) {
+        setPrices({ standard: 0, liquidity: 0 }); // Waive fees for admin
+        setPricesError(''); // Clear any pricing errors for admin
+      }
+    } else {
+      setIsAdmin(false);
+    }
+  }, [connected, publicKey]);
+
+  useEffect(() => {
+    if (isAdmin || prices) { // Don't fetch if admin or if prices are already loaded
+      return; 
+    }
     const fetchPrices = async () => {
         try {
             const response = await fetch('/api/get-prices');
@@ -59,49 +76,56 @@ function App(): React.ReactNode {
         }
     };
     fetchPrices();
-  }, []);
+  }, [isAdmin, prices]);
 
 
   const handlePaymentAndGeneration = useCallback(async (formData: StandardTokenForm | LiquidityTokenForm) => {
-    if (!connected || !publicKey || !sendTransaction) {
+    if (!connected || !publicKey) {
       const connectError = "Please connect your Solana wallet to proceed.";
       setError(connectError);
       setWalletError(connectError);
       return;
     }
 
-    if (!prices) {
+    if (!isAdmin && (!prices || pricesError)) {
         setError("Token prices are not available at the moment. Please try again later.");
         return;
     }
 
-    const feeInSol = activeTab === TokenType.Standard ? prices.standard : prices.liquidity;
-    const feeInLamports = feeInSol * LAMPORTS_PER_SOL;
-
-    setIsPaying(true);
+    // Reset states
     setError('');
     setWalletError(null);
     setGeneratedCode('');
-    setTokenFormData(null);
+    setTokenFormData(formData);
 
     try {
-        const transaction = new Transaction().add(
-            SystemProgram.transfer({
-                fromPubkey: publicKey,
-                toPubkey: new PublicKey(TREASURY_WALLET_ADDRESS),
-                lamports: Math.round(feeInLamports), // Use Math.round to avoid floating point issues
-            })
-        );
-        
-        const signature = await sendTransaction(transaction, connection);
-        await connection.confirmTransaction(signature, 'processed');
+        // Handle payment for non-admins
+        if (!isAdmin) {
+            setIsPaying(true);
+            if (!sendTransaction) throw new Error("Wallet not configured to send transactions.");
+            
+            const feeInSol = activeTab === TokenType.Standard ? prices!.standard : prices!.liquidity;
+            const feeInLamports = feeInSol * LAMPORTS_PER_SOL;
 
-        // Payment successful, now generate code
-        setIsPaying(false);
+            if (feeInLamports > 0) {
+                const transaction = new Transaction().add(
+                    SystemProgram.transfer({
+                        fromPubkey: publicKey,
+                        toPubkey: new PublicKey(TREASURY_WALLET_ADDRESS),
+                        lamports: Math.round(feeInLamports),
+                    })
+                );
+                
+                const signature = await sendTransaction(transaction, connection);
+                await connection.confirmTransaction(signature, 'processed');
+            }
+        }
+        
+        // After payment (or if admin), generate code
+        setIsPaying(false); // Make sure this is off before loading
         setIsLoading(true);
         const code = await generateTokenContract(activeTab, formData, selectedChain);
         setGeneratedCode(code);
-        setTokenFormData(formData);
 
     } catch (err: any) {
         console.error("Payment/Generation Error:", err);
@@ -109,17 +133,17 @@ function App(): React.ReactNode {
 
         if (err instanceof WalletError) {
           message = err.message || 'Transaction was rejected by the user.';
+          setWalletError(`Payment failed: ${message}`);
         } else if (err instanceof Error) {
             message = err.message;
         }
 
         setError(`Process Failed: ${message}`);
-        setWalletError(`Payment failed: ${message}`);
     } finally {
         setIsPaying(false);
         setIsLoading(false);
     }
-  }, [activeTab, connected, connection, publicKey, sendTransaction, selectedChain, prices]);
+  }, [activeTab, connected, connection, publicKey, sendTransaction, selectedChain, prices, isAdmin, pricesError]);
 
   return (
     <div className="bg-slate-50 min-h-screen text-slate-900 antialiased">
@@ -130,7 +154,7 @@ function App(): React.ReactNode {
             <span className="font-medium">Connection Error:</span> {walletError}
           </div>
         )}
-        {pricesError && (
+        {pricesError && !isAdmin && (
           <div className="mt-4 p-4 text-sm bg-yellow-50 text-yellow-800 border border-yellow-200 rounded-lg" role="alert">
             <span className="font-medium">Pricing Error:</span> {pricesError}
           </div>
@@ -138,7 +162,7 @@ function App(): React.ReactNode {
         <main className="mt-8 md:mt-12">
           <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
             <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Create Your EVM Token</h2>
-            <p className="mt-2 text-slate-500">Select your target blockchain, token type, and fill in the details. A small fee in SOL is required.</p>
+            <p className="mt-2 text-slate-500">Select your target blockchain, token type, and fill in the details. {isAdmin ? 'Admin fee waiver applied.' : 'A small fee in SOL is required.'}</p>
             
             <div className="mt-6 space-y-6">
                 <ChainSelector selectedChain={selectedChain} onChainChange={setSelectedChain} />
@@ -154,6 +178,8 @@ function App(): React.ReactNode {
                 isPaying={isPaying}
                 selectedChain={selectedChain}
                 prices={prices}
+                pricesError={pricesError}
+                isAdmin={isAdmin}
               />
             </div>
           </div>

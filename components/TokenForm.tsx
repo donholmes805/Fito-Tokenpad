@@ -9,6 +9,8 @@ interface TokenFormProps {
   isPaying: boolean;
   selectedChain: Chain;
   prices: { standard: number; liquidity: number } | null;
+  pricesError: string;
+  isAdmin: boolean;
 }
 
 const initialStandardState: StandardTokenForm = {
@@ -35,7 +37,7 @@ const dexRouterPlaceholders: Record<Chain, string> = {
 };
 
 
-function TokenForm({ tokenType, onSubmit, isLoading, isPaying, selectedChain, prices }: TokenFormProps): React.ReactNode {
+function TokenForm({ tokenType, onSubmit, isLoading, isPaying, selectedChain, prices, pricesError, isAdmin }: TokenFormProps): React.ReactNode {
   const [formData, setFormData] = useState<StandardTokenForm | LiquidityTokenForm>(initialStandardState);
 
   useEffect(() => {
@@ -73,18 +75,26 @@ function TokenForm({ tokenType, onSubmit, isLoading, isPaying, selectedChain, pr
   };
 
   const isStandard = tokenType === TokenType.Standard;
-  const isBusy = isLoading || isPaying || !prices;
+  const isPriceLoading = !isAdmin && !prices && !pricesError;
+  const hasPriceError = !isAdmin && !!pricesError;
+  const isBusy = isLoading || isPaying || isPriceLoading || hasPriceError;
 
   let buttonText: string;
   if (isPaying) {
       buttonText = 'Processing Payment...';
   } else if (isLoading) {
       buttonText = 'Generating Code...';
-  } else if (!prices) {
+  } else if (isAdmin) {
+      buttonText = 'Generate Code (Admin)';
+  } else if (isPriceLoading) {
       buttonText = 'Loading Fees...';
-  } else {
+  } else if (hasPriceError) {
+      buttonText = 'Pricing Unavailable';
+  } else if (prices) {
       const feeInSOL = isStandard ? prices.standard : prices.liquidity;
       buttonText = `Pay ${feeInSOL} SOL & Generate Code`;
+  } else {
+    buttonText = 'Generate Code'; // Fallback
   }
 
   return (
@@ -135,7 +145,7 @@ function TokenForm({ tokenType, onSubmit, isLoading, isPaying, selectedChain, pr
       <div className="pt-5">
         <div className="flex justify-end">
           <button type="submit" disabled={isBusy} className="inline-flex justify-center items-center py-3 px-6 border border-transparent shadow-sm text-base font-medium rounded-md text-white bg-slate-800 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 disabled:bg-slate-400 disabled:cursor-wait transition-colors duration-200">
-            {isBusy && <Spinner />}
+            {(isLoading || isPaying || isPriceLoading) && <Spinner />}
             {buttonText}
           </button>
         </div>
